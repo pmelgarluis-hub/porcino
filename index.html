@@ -404,7 +404,7 @@ tr.row-pronto td:first-child{border-left:3px solid var(--accent);}
 .toast.error{border-color:var(--red);color:var(--red);}
 
 /* ━━ PRINT ━━ */
-@media print{body>*{display:none !important;}#print-area{display:block !important;}@page{margin:14mm;size:A4;}}
+@media print{body>*{display:none !important;}#print-area{display:block !important;}#print-buttons{display:none !important;}@page{margin:14mm;size:A4;}}
 #print-area{display:none;}
 
 /* ━━ DASH PERIOD BUTTONS ━━ */
@@ -471,6 +471,7 @@ select,input,textarea{-webkit-appearance:none;appearance:none;}
       <div class="nav-section">Principal</div>
       <div class="nav-item active" onclick="showView('dashboard')"><span class="icon">📊</span> Dashboard</div>
       <div class="nav-section">Reproducción</div>
+      <div class="nav-item" onclick="showView('verraco')"><span class="icon">🐗</span> Verracos</div>
       <div class="nav-item" onclick="showView('gestantes')"><span class="icon">🐽</span> Gestantes</div>
       <div class="nav-item" onclick="showView('partos')"><span class="icon">🍼</span> Registro de Partos</div>
       <div class="nav-item" onclick="showView('calendario')"><span class="icon">📅</span> Calendario</div>
@@ -549,6 +550,21 @@ select,input,textarea{-webkit-appearance:none;appearance:none;}
           <div class="table-header"><h3>Lotes activos recientes</h3></div>
           <table><thead><tr><th>Lote</th><th>Cerdos</th><th>Fase</th><th>Ingreso</th><th>Peso Prom.</th><th>Estado</th></tr></thead>
           <tbody id="dash-lotes"></tbody></table>
+        </div>
+      </div>
+
+      <!-- VERRACOS -->
+      <div class="view" id="view-verraco">
+        <div class="kpi-grid" id="verraco-kpis"></div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>🐗 Registro de Verracos</h3>
+            <button class="btn btn-primary" onclick="openModal('modal-verraco-nuevo')">+ Registrar Verraco</button>
+          </div>
+          <table>
+            <thead><tr><th>ID / Nombre</th><th>Raza</th><th>Edad</th><th>Peso</th><th>Estado</th><th>Montas</th><th>Último servicio</th><th>Próx. tratamiento</th><th>Acciones</th></tr></thead>
+            <tbody id="verraco-body"></tbody>
+          </table>
         </div>
       </div>
 
@@ -883,6 +899,126 @@ select,input,textarea{-webkit-appearance:none;appearance:none;}
 <!-- ═══ MODALS ═══ -->
 
 <!-- Modal Gestante -->
+<!-- Modal Nuevo Verraco -->
+<div class="modal-overlay" id="modal-verraco-nuevo">
+  <div class="modal" style="width:600px">
+    <div class="modal-header"><h3>🐗 Registrar Verraco</h3><button class="modal-close" onclick="closeModal('modal-verraco-nuevo')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>ID / Nombre</label><input type="text" id="vr-nombre" placeholder="Ej: V-001"></div>
+        <div class="form-group"><label>Raza</label><input type="text" id="vr-raza" placeholder="Ej: Duroc, Pietrain"></div>
+        <div class="form-group"><label>Fecha de nacimiento</label><input type="date" id="vr-nacimiento"></div>
+        <div class="form-group"><label>Peso actual (lb)</label><input type="number" id="vr-peso" placeholder="0.0" step="0.1"></div>
+        <div class="form-group"><label>Procedencia</label><input type="text" id="vr-procedencia" placeholder="Granja origen"></div>
+        <div class="form-group"><label>Estado</label>
+          <select id="vr-estado">
+            <option value="activo">Activo ✅</option>
+            <option value="descanso">En descanso ⏸</option>
+            <option value="descartado">Descartado ❌</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Edad primer servicio</label><input type="text" id="vr-edad-primer" placeholder="Ej: 8 meses"></div>
+        <div class="form-group"><label>Peso primer servicio (lb)</label><input type="number" id="vr-peso-primer" placeholder="0.0" step="0.1"></div>
+        <div class="form-group"><label>Montas por semana (max)</label><input type="number" id="vr-montas-semana" placeholder="2-3" min="1" max="7"></div>
+        <div class="form-group"><label>Días descanso entre servicios</label><input type="number" id="vr-dias-descanso" placeholder="2-3" min="1"></div>
+        <div class="form-group"><label>Libido (1-5)</label>
+          <select id="vr-libido">
+            <option value="5">5 — Excelente</option><option value="4">4 — Bueno</option>
+            <option value="3">3 — Normal</option><option value="2">2 — Bajo</option><option value="1">1 — Muy bajo</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Tipo de servicio</label>
+          <select id="vr-tipo-servicio">
+            <option value="monta_natural">Monta natural</option>
+            <option value="ia">Inseminación artificial (IA)</option>
+            <option value="ambos">Ambos</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Observaciones generales</label>
+          <textarea id="vr-obs" placeholder="Comportamiento, características, notas..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-verraco-nuevo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveVerraco()">Guardar Verraco</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ver Verraco -->
+<div class="modal-overlay" id="modal-ver-verraco">
+  <div class="modal" style="width:660px;max-height:90vh">
+    <div class="modal-header">
+      <h3 id="ver-verraco-titulo">🐗 Verraco</h3>
+      <button class="modal-close" onclick="closeModal('modal-ver-verraco')">✕</button>
+    </div>
+    <div class="modal-body" id="ver-verraco-body" style="max-height:72vh;overflow-y:auto"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-ver-verraco')">Cerrar</button>
+      <button class="btn btn-ghost" onclick="abrirModalMonta()" style="color:var(--blue);border-color:var(--blue)">+ Registrar Monta</button>
+      <button class="btn btn-ghost" onclick="abrirModalTratamientoV()" style="color:var(--green);border-color:var(--green)">+ Tratamiento</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Monta de Verraco -->
+<div class="modal-overlay" id="modal-monta-verraco">
+  <div class="modal" style="width:480px">
+    <div class="modal-header"><h3>🐗 Registrar Monta</h3><button class="modal-close" onclick="closeModal('modal-monta-verraco')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="mv-verraco-id">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha</label><input type="date" id="mv-fecha"></div>
+        <div class="form-group"><label>Cerda servida</label><input type="text" id="mv-cerda" placeholder="ID o nombre de la cerda"></div>
+        <div class="form-group"><label>Tipo</label>
+          <select id="mv-tipo"><option value="monta_natural">Monta natural</option><option value="ia">IA</option></select>
+        </div>
+        <div class="form-group"><label>Resultado</label>
+          <select id="mv-resultado"><option value="pendiente">Pendiente ⏳</option><option value="preñada">Preñada ✅</option><option value="fallida">Fallida ❌</option></select>
+        </div>
+        <div class="form-group full"><label>Observaciones</label><textarea id="mv-obs" placeholder="Notas..."></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-monta-verraco')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMontaVerraco()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Tratamiento Verraco -->
+<div class="modal-overlay" id="modal-trat-verraco">
+  <div class="modal" style="width:500px">
+    <div class="modal-header"><h3>💉 Registrar Tratamiento</h3><button class="modal-close" onclick="closeModal('modal-trat-verraco')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="tv-verraco-id">
+      <div class="form-grid">
+        <div class="form-group"><label>Tipo</label>
+          <select id="tv-tipo">
+            <option value="vitamina">Vitamina/Mineral</option>
+            <option value="desparasitante">Desparasitante</option>
+            <option value="vacuna">Vacuna</option>
+            <option value="antibiotico">Antibiótico</option>
+            <option value="antiinflamatorio">Antiinflamatorio</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Producto</label><input type="text" id="tv-producto" placeholder="Nombre del producto"></div>
+        <div class="form-group"><label>Dosis</label><input type="text" id="tv-dosis" placeholder="Ej: 5 ml IM"></div>
+        <div class="form-group"><label>Fecha aplicación</label><input type="date" id="tv-fecha"></div>
+        <div class="form-group"><label>Próxima aplicación</label><input type="date" id="tv-proxima"></div>
+        <div class="form-group"><label>Aplicado por</label><input type="text" id="tv-aplicado" placeholder="Nombre"></div>
+        <div class="form-group full"><label>Observaciones</label><textarea id="tv-obs" placeholder="Reacción, notas..."></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-trat-verraco')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTratamientoV()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-gestante">
   <div class="modal">
     <div class="modal-header"><h3>🐽 Registrar Monta / Inseminación</h3><button class="modal-close" onclick="closeModal('modal-gestante')">✕</button></div>
@@ -1058,7 +1194,9 @@ select,input,textarea{-webkit-appearance:none;appearance:none;}
     <div class="modal-body" id="ver-parto-body" style="max-height:70vh;overflow-y:auto"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-ver-parto')">Cerrar</button>
+      <button class="btn btn-ghost" onclick="imprimirFichaParto()" style="color:var(--blue);border-color:var(--blue)">🖨 Imprimir Ficha</button>
       <button class="btn btn-primary" id="btn-add-lechon" onclick="abrirModalLechon()">+ Registrar lechón</button>
+      <button class="btn" id="btn-finalizar-parto" onclick="finalizarParto()" style="background:var(--green);color:#fff">✅ Finalizar Parto</button>
     </div>
   </div>
 </div>
@@ -1713,7 +1851,7 @@ function checkSession() {
 // ══════════════════════════════════════════
 //  DATA STORE
 // ══════════════════════════════════════════
-const DB = { lotes:[], pesos:[], alimentos:[], bajas:[], gastos:[], ventas:[], gestantes:[], insumos:[], kardex:[], corrales:[], fichas:[], catalogos:null, partos:[], lechones:[], abonos:[] };
+const DB = { lotes:[], pesos:[], alimentos:[], bajas:[], gastos:[], ventas:[], gestantes:[], insumos:[], kardex:[], corrales:[], fichas:[], catalogos:null, partos:[], lechones:[], abonos:[], verracos:[], montasV:[], tratamientosV:[] };
 
 let _toastTimer = null;
 function toast(msg, tipo) {
@@ -1741,7 +1879,7 @@ function load() {
     if (d) {
       const parsed = JSON.parse(d);
       Object.keys(parsed).forEach(k => { DB[k] = parsed[k]; });
-      ['lotes','pesos','alimentos','bajas','gastos','ventas','gestantes','insumos','kardex','corrales','fichas','partos','lechones','abonos']
+      ['lotes','pesos','alimentos','bajas','gastos','ventas','gestantes','insumos','kardex','corrales','fichas','partos','lechones','abonos','verracos','montasV','tratamientosV']
         .forEach(k => { if (!Array.isArray(DB[k])) DB[k] = []; });
     }
   } catch(e) {}
@@ -1832,6 +1970,7 @@ function fechaPartoISO(g) {
 function openModal(id) {
   if (id === 'modal-parto-nuevo') { openPartoNuevo(); return; }
   if (id === 'modal-venta')       { openVentaModal(); return; }
+  if (id === 'modal-verraco-nuevo') { openVerracoModal(); return; }
   document.getElementById(id).classList.add('open');
   // Populate lote selects
   const sel = document.querySelector(`#${id} select[id$="-lote"]`);
@@ -1892,7 +2031,7 @@ document.querySelectorAll('.modal-overlay').forEach(el=>{
 // ══════════════════════════════════════════
 //  VIEWS
 // ══════════════════════════════════════════
-const titles = { dashboard:'Dashboard', gestantes:'Cerdas Gestantes', partos:'Registro de Partos', calendario:'Calendario de Partos',
+const titles = { dashboard:'Dashboard', verraco:'Verracos', gestantes:'Cerdas Gestantes', partos:'Registro de Partos', calendario:'Calendario de Partos',
   corrales:'Corrales', lotes:'Lotes', analitico:'Costo Analítico por Lote',
   pesos:'Pesos y Crecimiento', alimentacion:'Alimentación', mortalidad:'Mortalidad y Bajas',
   inventario:'Inventario de Insumos', gastos:'Gastos', ventas:'Ventas',
@@ -1941,6 +2080,7 @@ function showView(name) {
 function renderView(name) {
   try {
     if(name==='dashboard')    renderDashboard();
+    else if(name==='verraco')      renderVerraco();
     else if(name==='gestantes')    renderGestantes();
     else if(name==='partos')       renderPartos();
     else if(name==='calendario')   renderCalendario();
@@ -3307,19 +3447,65 @@ function verRecibo(ventaId) {
 
 function imprimirRecibo() {
   const contenido = document.getElementById('recibo-preview').innerHTML;
-  document.getElementById('print-area').innerHTML = `
+
+  // Crear una ventana de impresión dentro de la misma página
+  const printDiv = document.getElementById('print-area');
+  printDiv.innerHTML = `
     <style>
-      body { font-family: 'Helvetica Neue', Arial, sans-serif; }
-      * { box-sizing: border-box; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; }
+      @media print { @page { margin: 14mm; size: A4; } }
     </style>
     ${contenido}
   `;
-  document.getElementById('modal-recibo').style.display = 'none';
-  window.print();
-  setTimeout(() => {
-    document.getElementById('modal-recibo').style.display = '';
-    document.getElementById('print-area').innerHTML = '';
-  }, 1000);
+
+  // Ocultar la app completa
+  document.querySelector('.app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'none';
+
+  // Mostrar solo el recibo
+  printDiv.style.display = 'block';
+  printDiv.style.padding = '20px';
+  printDiv.style.background = '#fff';
+  printDiv.style.minHeight = '100vh';
+
+  // Agregar botón de cerrar y botón de imprimir
+  const botonesDiv = document.createElement('div');
+  botonesDiv.id = 'print-buttons';
+  botonesDiv.style.cssText = `
+    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+    display: flex; gap: 10px;
+  `;
+  botonesDiv.innerHTML = `
+    <button onclick="cerrarVistaRecibo()" style="
+      background: #6b85aa; color: #fff; border: none; border-radius: 10px;
+      padding: 12px 22px; font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; font-family: sans-serif;">
+      ✕ Cerrar
+    </button>
+    <button onclick="window.print()" style="
+      background: #1a6fd4; color: #fff; border: none; border-radius: 10px;
+      padding: 12px 22px; font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; font-family: sans-serif;">
+      🖨 Imprimir / Guardar PDF
+    </button>
+  `;
+  document.body.appendChild(botonesDiv);
+
+  // Scroll al inicio
+  window.scrollTo(0, 0);
+}
+
+function cerrarVistaRecibo() {
+  // Restaurar la app
+  document.querySelector('.app').style.display = 'flex';
+  document.getElementById('print-area').style.display = 'none';
+  document.getElementById('print-area').innerHTML = '';
+  document.getElementById('print-area').style.padding = '';
+
+  // Quitar botones
+  const btn = document.getElementById('print-buttons');
+  if (btn) btn.remove();
 }
 
 function enviarWhatsApp() {
@@ -3383,8 +3569,9 @@ _Granja Porcina Las Olas_`;
   // Obtener teléfono del cliente desde catálogo si existe
   const clienteCat = (DB.catalogos?.clientes || []).find(c => c.nombre === v.comprador);
   const tel = clienteCat?.tel ? clienteCat.tel.replace(/\D/g,'') : '';
-  // tel guatemalteco: agregar 502 si es de 8 dígitos
-  const telFull = tel.length === 8 ? '502' + tel : tel;
+  // Número fijo de la granja como destino por defecto
+  const telFijo = '50247342986';
+  const telFull = tel.length === 8 ? '502' + tel : tel.length > 8 ? tel : telFijo;
 
   const url = `https://wa.me/${telFull}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
@@ -3776,6 +3963,8 @@ function renderPartos() {
       <td><span class="badge ${lchs.length>0?'badge-green':'badge-yellow'}">${lchs.length} lechón(es)</span></td>
       <td style="white-space:nowrap">
         <button class="btn btn-primary btn-sm" onclick="verFichaParto('${p.id}')">📋 Ver / + Lechón</button>
+        <button class="btn btn-sm" onclick="_fichaPartoId='${p.id}';imprimirFichaParto()" style="background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd" title="Imprimir ficha">🖨</button>
+        ${!p.finalizado ? `<button class="btn btn-sm" onclick="_fichaPartoId='${p.id}';finalizarParto()" style="background:#dcfce7;color:#166534;border:1px solid #86efac" title="Finalizar parto">✅</button>` : `<span class="badge badge-green" style="font-size:.6rem">✓ Fin.</span>`}
         <button class="btn btn-danger btn-sm" onclick="deleteParto('${p.id}')">✕</button>
       </td></tr>`;
   }).join('')||'<tr><td colspan="10"><div class="empty"><div class="icon">🍼</div>Sin partos registrados.</div></td></tr>';
@@ -3999,11 +4188,346 @@ function deleteLechon(id) {
   save();if(_fichaPartoId)verFichaParto(_fichaPartoId);renderPartos();
 }
 
+function finalizarParto() {
+  if (!_fichaPartoId) return;
+  const p = DB.partos.find(x => x.id === _fichaPartoId); if (!p) return;
+  const lchs = getLechonesDeP(_fichaPartoId);
+  if (lchs.length === 0) { toast('⚠ Registra al menos un lechón antes de finalizar', 'error'); return; }
+  if (!confirm(`¿Finalizar el parto de ${p.cerdaNombre}?\n\nTotal: ${lchs.length} lechones\nVivos: ${lchs.filter(l=>l.estado==='vivo').length}\nMuertos: ${lchs.filter(l=>l.estado==='muerto').length}`)) return;
+  p.finalizado = true;
+  p.fechaFin = new Date().toISOString().slice(0,10);
+  if (p.gestanteId) {
+    const g = (DB.gestantes||[]).find(x=>x.id===p.gestanteId);
+    if (g) { g.estado='parida'; g.fechaParto=p.fecha; }
+  }
+  save();
+  toast(`✓ Parto de ${p.cerdaNombre} finalizado — ${lchs.length} lechones`);
+  closeModal('modal-ver-parto');
+  renderPartos();
+  setTimeout(() => {
+    if (confirm('¿Imprimir la ficha de parto?')) { _fichaPartoId = p.id; imprimirFichaParto(); }
+  }, 300);
+}
+
+function imprimirFichaParto() {
+  if (!_fichaPartoId) return;
+  const p = DB.partos.find(x => x.id === _fichaPartoId); if (!p) return;
+  const lchs = getLechonesDeP(_fichaPartoId);
+  const nv=lchs.filter(l=>l.estado==='vivo').length;
+  const nm=lchs.filter(l=>l.estado==='muerto').length;
+  const mom=lchs.filter(l=>l.estado==='mumificado').length;
+  const hembras=lchs.filter(l=>l.sexo==='H').length;
+  const machos=lchs.filter(l=>l.sexo==='M').length;
+  const pesos=lchs.filter(l=>l.peso>0).map(l=>l.peso);
+  const prom=pesos.length?(pesos.reduce((a,b)=>a+b,0)/pesos.length).toFixed(2):'—';
+  const minP=pesos.length?Math.min(...pesos).toFixed(2):'—';
+  const maxP=pesos.length?Math.max(...pesos).toFixed(2):'—';
+
+  const fichaHTML=`<div style="max-width:680px;margin:0 auto;font-family:'Helvetica Neue',Arial,sans-serif;color:#111">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:2px solid #111;margin-bottom:20px">
+      <div><div style="font-size:1.4rem;font-weight:800">🐖 Granja Porcina Las Olas</div><div style="font-size:0.75rem;color:#666">Guatemala</div></div>
+      <div style="text-align:right">
+        <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:#888">Ficha de Parto</div>
+        <div style="font-size:1rem;font-weight:700">Parto #${p.numParto} — ${p.cerdaNombre}</div>
+        <div style="font-size:0.75rem;color:#666">${p.fecha} ${p.horaInicio||''}</div>
+        <div style="display:inline-block;margin-top:4px;background:${p.finalizado?'#dcfce7':'#fef9c3'};color:${p.finalizado?'#166534':'#a16207'};padding:2px 10px;border-radius:20px;font-size:0.7rem;font-weight:700">${p.finalizado?'✅ COMPLETADO':'⏳ EN PROCESO'}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;background:#f8f8f8;padding:14px;border-radius:8px;font-size:0.8rem">
+      ${[['Cerda',p.cerdaNombre||'—'],['Raza',p.raza||'—'],['N° Parto','#'+(p.numParto||'?')+(p.primeriza==='si'?' ⭐':'')],['Tetas',p.tetas||'—'],['Tipo Parto',p.tipoParto||'—'],['Duración',p.duracion||'—'],['Cond. Corp.',p.condicion?p.condicion+'/5':'—'],['Peso Cerda',p.pesoCerda?p.pesoCerda+' lb':'—']].map(([l,v])=>`<div><div style="font-size:0.6rem;text-transform:uppercase;color:#888;margin-bottom:3px">${l}</div><div style="font-weight:600">${v}</div></div>`).join('')}
+    </div>
+    <div style="background:#fff8f0;border:1px solid #fdd;border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.8rem">
+      <div style="font-weight:700;margin-bottom:6px;font-size:0.65rem;text-transform:uppercase;color:#888">Tratamientos</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <span>💉 ${p.inyFiebre||'No'}</span><span>💊 Oxitocina: ${p.oxitocina||'No'}</span>
+        <span>🧪 Ca/Gluc: ${p.calcio||'No'}</span><span>💊 ATB: ${p.antibiotico||'—'}</span>
+        <span>🫀 Placenta: ${p.placenta==='si'?'Retenida':'Normal'}</span>
+      </div>
+      ${p.obsCerda?`<div style="margin-top:6px;color:#666">📝 ${p.obsCerda}</div>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:16px;text-align:center">
+      ${[['Vivos',''+nv,'#17a85a'],['Muertos',''+nm,'#e03e3e'],['Momif.',''+mom,'#888'],['Hembras ♀',''+hembras,'#d94f8a'],['Machos ♂',''+machos,'#1a6fd4'],['Prom. lb',prom,'#111'],['Min/Max',minP+'/'+maxP,'#555']].map(([l,v,c])=>`<div style="background:#f8f8f8;border-radius:8px;padding:10px 4px"><div style="font-size:0.56rem;text-transform:uppercase;color:#888;margin-bottom:4px">${l}</div><div style="font-weight:700;font-size:0.95rem;color:${c}">${v}</div></div>`).join('')}
+    </div>
+    <div style="font-size:0.62rem;text-transform:uppercase;color:#888;margin-bottom:6px">Lechones registrados (${lchs.length})</div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.76rem">
+      <thead><tr style="background:#f0f0f0">${['#','Hora','Sexo','Estado','Peso','Nac.','Vital.','Calostro','Anom.','Obs.'].map(h=>`<th style="padding:6px 7px;text-align:left;font-size:0.58rem;text-transform:uppercase;color:#666;border-bottom:2px solid #ddd">${h}</th>`).join('')}</tr></thead>
+      <tbody>${lchs.map((l,i)=>`<tr style="border-bottom:1px solid #eee;${l.estado!=='vivo'?'background:#fff5f5':''}">
+        <td style="padding:6px 7px;font-weight:700;color:#1a6fd4">${i+1}</td>
+        <td style="padding:6px 7px">${l.hora||'—'}<br><span style="color:#888;font-size:0.6rem">${l.fecha||''}</span></td>
+        <td style="padding:6px 7px">${l.sexo==='H'?'♀':'♂'}</td>
+        <td style="padding:6px 7px"><span style="padding:2px 7px;border-radius:12px;font-size:0.65rem;font-weight:700;background:${l.estado==='vivo'?'#dcfce7':l.estado==='muerto'?'#fee2e2':'#fef9c3'};color:${l.estado==='vivo'?'#166534':l.estado==='muerto'?'#991b1b':'#a16207'}">${l.estado}</span></td>
+        <td style="padding:6px 7px;font-weight:600">${l.peso||'—'}</td>
+        <td style="padding:6px 7px;color:#666">${l.tipoNac||'natural'}</td>
+        <td style="padding:6px 7px">${'★'.repeat(l.vitalidad||3)}${'☆'.repeat(5-(l.vitalidad||3))}</td>
+        <td style="padding:6px 7px">${l.calostro==='si'?'✅':l.calostro==='asistido'?'⚠':'❌'}</td>
+        <td style="padding:6px 7px">${l.anomalia==='si'?'⚠':'—'}</td>
+        <td style="padding:6px 7px;color:#888;max-width:100px;font-size:0.7rem">${l.obs||'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:40px;padding-top:16px;border-top:1px solid #ddd">
+      <div style="text-align:center"><div style="border-top:1px solid #333;padding-top:8px;font-size:0.72rem;color:#888;margin-top:48px">Responsable del parto</div></div>
+      <div style="text-align:center"><div style="border-top:1px solid #333;padding-top:8px;font-size:0.72rem;color:#888;margin-top:48px">Médico Veterinario</div></div>
+    </div>
+    <div style="text-align:center;margin-top:20px;font-size:0.65rem;color:#bbb">Generado por PorcApp · Granja Porcina Las Olas · ${new Date().toLocaleDateString('es-GT')}</div>
+  </div>`;
+
+  const printDiv = document.getElementById('print-area');
+  printDiv.innerHTML = `<style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}@media print{@page{margin:14mm;size:A4;}}</style>${fichaHTML}`;
+  document.querySelector('.app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'none';
+  printDiv.style.cssText = 'display:block;padding:24px;background:#fff;min-height:100vh;';
+  const bDiv = document.createElement('div');
+  bDiv.id = 'print-buttons';
+  bDiv.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;gap:10px;';
+  bDiv.innerHTML = `<button onclick="cerrarVistaRecibo()" style="background:#6b85aa;color:#fff;border:none;border-radius:10px;padding:12px 22px;font-size:.9rem;font-weight:700;cursor:pointer">✕ Cerrar</button>
+    <button onclick="window.print()" style="background:#1a6fd4;color:#fff;border:none;border-radius:10px;padding:12px 22px;font-size:.9rem;font-weight:700;cursor:pointer">🖨 Imprimir / PDF</button>`;
+  document.body.appendChild(bDiv);
+  window.scrollTo(0,0);
+}
+
 function deleteParto(id) {
   if(!confirm('¿Eliminar ficha y todos sus lechones?'))return;
   DB.partos.splice(DB.partos.findIndex(p=>p.id===id),1);
   DB.lechones=DB.lechones.filter(l=>l.partoId!==id);
   save();renderPartos();
+}
+
+// ══════════════════════════════════════════
+//  VERRACOS
+// ══════════════════════════════════════════
+let _verracoActualId = null;
+
+function renderVerraco() {
+  const verracos = DB.verracos || [];
+  const activos  = verracos.filter(v=>v.estado==='activo').length;
+  const totalMontas = (DB.montasV||[]).length;
+  const preñadas = (DB.montasV||[]).filter(m=>m.resultado==='preñada').length;
+  const tasaFert = totalMontas>0?(preñadas/totalMontas*100).toFixed(1):0;
+
+  // Próximos tratamientos (en los próximos 7 días)
+  const hoy = new Date();
+  const proxTrat = (DB.tratamientosV||[]).filter(t=>{
+    if(!t.proxima) return false;
+    const d = new Date(t.proxima+'T12:00:00');
+    const diff = (d-hoy)/86400000;
+    return diff>=0 && diff<=7;
+  });
+
+  document.getElementById('verraco-kpis').innerHTML=`
+    <div class="kpi accent"><div class="kpi-label">Verracos Activos</div><div class="kpi-value" style="color:var(--accent)">${activos}</div><div class="kpi-sub">${verracos.length} total</div></div>
+    <div class="kpi blue"><div class="kpi-label">Montas Registradas</div><div class="kpi-value" style="color:var(--blue)">${totalMontas}</div></div>
+    <div class="kpi green"><div class="kpi-label">Tasa Fertilidad</div><div class="kpi-value" style="color:var(--green)">${tasaFert}%</div><div class="kpi-sub">${preñadas} preñadas</div></div>
+    <div class="kpi ${proxTrat.length>0?'red':''}"><div class="kpi-label">Tratam. Próximos</div><div class="kpi-value" style="color:${proxTrat.length>0?'var(--red)':'var(--muted)'}">${proxTrat.length}</div><div class="kpi-sub">en 7 días</div></div>
+  `;
+
+  document.getElementById('verraco-body').innerHTML = [...verracos].map(v=>{
+    const montas = (DB.montasV||[]).filter(m=>m.verracoId===v.id);
+    const ultMonta = montas.sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
+    const tratos = (DB.tratamientosV||[]).filter(t=>t.verracoId===v.id);
+    const proxTrato = tratos.filter(t=>t.proxima).sort((a,b)=>a.proxima.localeCompare(b.proxima))[0];
+    const hoyStr = new Date().toISOString().slice(0,10);
+    const diasTrato = proxTrato ? Math.round((new Date(proxTrato.proxima+'T12:00:00')-new Date())/86400000) : null;
+    const edad = v.nacimiento ? calcEdad(v.nacimiento) : '—';
+
+    return `<tr>
+      <td><strong>${v.nombre||'—'}</strong></td>
+      <td><span class="badge badge-blue">${v.raza||'—'}</span></td>
+      <td>${edad}</td>
+      <td>${v.peso?v.peso+' lb':'—'}</td>
+      <td><span class="badge ${v.estado==='activo'?'badge-green':v.estado==='descanso'?'badge-yellow':'badge-red'}">${v.estado||'activo'}</span></td>
+      <td><strong>${montas.length}</strong></td>
+      <td style="font-size:.78rem">${ultMonta?ultMonta.fecha:'—'}</td>
+      <td style="font-size:.78rem;color:${diasTrato!==null&&diasTrato<=3?'var(--red)':diasTrato!==null&&diasTrato<=7?'var(--accent)':'var(--muted)'}">
+        ${proxTrato?`${proxTrato.tipo}: ${proxTrato.proxima}<br><span style="font-size:.68rem">${diasTrato<=0?'Vencido':diasTrato===0?'Hoy':'En '+diasTrato+'d'}</span>`:'—'}
+      </td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-primary btn-sm" onclick="verVerraco('${v.id}')">📋 Ver</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteVerraco('${v.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9"><div class="empty"><div class="icon">🐗</div>Sin verracos registrados.</div></td></tr>';
+}
+
+function calcEdad(fechaNac) {
+  const d = new Date(fechaNac+'T12:00:00');
+  const hoy = new Date();
+  const meses = (hoy.getFullYear()-d.getFullYear())*12 + (hoy.getMonth()-d.getMonth());
+  return meses>=12 ? Math.floor(meses/12)+'a '+meses%12+'m' : meses+'m';
+}
+
+function openVerracoModal() {
+  ['vr-nombre','vr-raza','vr-procedencia','vr-edad-primer','vr-peso-primer','vr-montas-semana','vr-dias-descanso','vr-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('vr-peso').value='';
+  document.getElementById('vr-nacimiento').value='';
+  document.getElementById('vr-estado').value='activo';
+  document.getElementById('vr-libido').value='3';
+  document.getElementById('vr-tipo-servicio').value='monta_natural';
+  document.getElementById('modal-verraco-nuevo').classList.add('open');
+}
+
+function saveVerraco() {
+  const nombre = document.getElementById('vr-nombre').value.trim();
+  if (!nombre) { toast('⚠ Ingresa un ID o nombre','error'); return; }
+  DB.verracos.push({
+    id:uid(), nombre,
+    raza:        document.getElementById('vr-raza').value,
+    nacimiento:  document.getElementById('vr-nacimiento').value,
+    peso:        parseFloat(document.getElementById('vr-peso').value)||0,
+    procedencia: document.getElementById('vr-procedencia').value,
+    estado:      document.getElementById('vr-estado').value,
+    edadPrimer:  document.getElementById('vr-edad-primer').value,
+    pesoPrimer:  parseFloat(document.getElementById('vr-peso-primer').value)||0,
+    montasSemana:parseInt(document.getElementById('vr-montas-semana').value)||2,
+    diasDescanso:parseInt(document.getElementById('vr-dias-descanso').value)||2,
+    libido:      parseInt(document.getElementById('vr-libido').value)||3,
+    tipoServicio:document.getElementById('vr-tipo-servicio').value,
+    obs:         document.getElementById('vr-obs').value,
+    creadoEn:    new Date().toISOString()
+  });
+  save(); closeModal('modal-verraco-nuevo'); renderVerraco();
+  toast('✓ Verraco registrado');
+}
+
+function verVerraco(id) {
+  _verracoActualId = id;
+  const v = DB.verracos.find(x=>x.id===id); if(!v) return;
+  const montas = (DB.montasV||[]).filter(m=>m.verracoId===id).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const tratos = (DB.tratamientosV||[]).filter(t=>t.verracoId===id).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const preñadas = montas.filter(m=>m.resultado==='preñada').length;
+
+  document.getElementById('ver-verraco-titulo').textContent = `🐗 ${v.nombre} — ${v.raza||''}`;
+  document.getElementById('ver-verraco-body').innerHTML = `
+    <!-- Info básica -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px">
+      ${[['Nombre/ID',v.nombre],['Raza',v.raza||'—'],['Nacimiento',v.nacimiento||'—'],['Edad',v.nacimiento?calcEdad(v.nacimiento):'—'],
+         ['Peso',v.peso?v.peso+' lb':'—'],['Estado',v.estado||'activo'],['Libido',v.libido+'/5'],['Tipo Servicio',v.tipoServicio||'—'],
+         ['Montas/semana',v.montasSemana||'—'],['Días descanso',v.diasDescanso||'—'],['1er servicio edad',v.edadPrimer||'—'],['1er servicio peso',v.pesoPrimer?v.pesoPrimer+' lb':'—']
+        ].map(([l,val])=>`<div><div class="kpi-label">${l}</div><div style="font-size:.85rem;font-weight:600;margin-top:4px">${val}</div></div>`).join('')}
+    </div>
+    ${v.obs?`<div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:.82rem;color:var(--muted2)">📝 ${v.obs}</div>`:''}
+
+    <!-- KPIs montas -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div class="kpi blue"><div class="kpi-label">Total Montas</div><div class="kpi-value" style="color:var(--blue)">${montas.length}</div></div>
+      <div class="kpi green"><div class="kpi-label">Preñadas</div><div class="kpi-value" style="color:var(--green)">${preñadas}</div></div>
+      <div class="kpi"><div class="kpi-label">Fertilidad</div><div class="kpi-value">${montas.length>0?(preñadas/montas.length*100).toFixed(0)+'%':'—'}</div></div>
+    </div>
+
+    <!-- Historial montas -->
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Historial de montas</div>
+    <table style="width:100%;font-size:.8rem;margin-bottom:18px">
+      <thead><tr>${['Fecha','Cerda','Tipo','Resultado','Obs'].map(h=>`<th style="padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border)">${h}</th>`).join('')}<th style="background:var(--surface);border-bottom:1px solid var(--border)"></th></tr></thead>
+      <tbody>${montas.map(m=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:7px 10px">${m.fecha}</td>
+        <td style="padding:7px 10px;font-weight:600">${m.cerda||'—'}</td>
+        <td style="padding:7px 10px"><span class="badge badge-blue">${m.tipo==='ia'?'IA':'Natural'}</span></td>
+        <td style="padding:7px 10px"><span class="badge ${m.resultado==='preñada'?'badge-green':m.resultado==='fallida'?'badge-red':'badge-yellow'}">${m.resultado}</span></td>
+        <td style="padding:7px 10px;color:var(--muted);font-size:.75rem">${m.obs||'—'}</td>
+        <td style="padding:7px 10px"><button class="btn btn-danger btn-sm" onclick="deleteMontaV('${m.id}')">✕</button></td>
+      </tr>`).join('')||`<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--muted)">Sin montas registradas</td></tr>`}</tbody>
+    </table>
+
+    <!-- Tratamientos -->
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Tratamientos y salud</div>
+    <table style="width:100%;font-size:.8rem">
+      <thead><tr>${['Tipo','Producto','Dosis','Fecha','Próxima','Aplicado por','Obs'].map(h=>`<th style="padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);text-transform:uppercase;background:var(--surface);border-bottom:1px solid var(--border)">${h}</th>`).join('')}<th style="background:var(--surface);border-bottom:1px solid var(--border)"></th></tr></thead>
+      <tbody>${tratos.map(t=>{
+        const diasProx = t.proxima ? Math.round((new Date(t.proxima+'T12:00:00')-new Date())/86400000) : null;
+        const colorProx = diasProx!==null&&diasProx<=0?'var(--red)':diasProx!==null&&diasProx<=7?'var(--accent)':'var(--muted)';
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:7px 10px"><span class="badge ${t.tipo==='vacuna'?'badge-blue':t.tipo==='desparasitante'?'badge-green':t.tipo==='vitamina'?'badge-yellow':t.tipo==='antibiotico'?'badge-red':'badge-purple'}">${t.tipo}</span></td>
+          <td style="padding:7px 10px;font-weight:600">${t.producto||'—'}</td>
+          <td style="padding:7px 10px">${t.dosis||'—'}</td>
+          <td style="padding:7px 10px">${t.fecha||'—'}</td>
+          <td style="padding:7px 10px;color:${colorProx}">${t.proxima||'—'}${diasProx!==null?`<br><span style="font-size:.65rem">${diasProx<=0?'⚠ Vencida':diasProx===0?'Hoy':'En '+diasProx+'d'}</span>`:''}</td>
+          <td style="padding:7px 10px;color:var(--muted)">${t.aplicado||'—'}</td>
+          <td style="padding:7px 10px;color:var(--muted);font-size:.75rem">${t.obs||'—'}</td>
+          <td style="padding:7px 10px"><button class="btn btn-danger btn-sm" onclick="deleteTratV('${t.id}')">✕</button></td>
+        </tr>`;}).join('')||`<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--muted)">Sin tratamientos registrados</td></tr>`}</tbody>
+    </table>
+  `;
+  document.getElementById('modal-ver-verraco').classList.add('open');
+}
+
+function abrirModalMonta() {
+  if (!_verracoActualId) return;
+  document.getElementById('mv-verraco-id').value = _verracoActualId;
+  document.getElementById('mv-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('mv-cerda').value='';
+  document.getElementById('mv-obs').value='';
+  document.getElementById('mv-tipo').value='monta_natural';
+  document.getElementById('mv-resultado').value='pendiente';
+  document.getElementById('modal-monta-verraco').classList.add('open');
+}
+
+function saveMontaVerraco() {
+  const verracoId = document.getElementById('mv-verraco-id').value;
+  const cerda = document.getElementById('mv-cerda').value.trim();
+  if (!cerda) { toast('⚠ Ingresa la cerda servida','error'); return; }
+  if (!DB.montasV) DB.montasV = [];
+  DB.montasV.push({
+    id:uid(), verracoId,
+    fecha:     document.getElementById('mv-fecha').value,
+    cerda,
+    tipo:      document.getElementById('mv-tipo').value,
+    resultado: document.getElementById('mv-resultado').value,
+    obs:       document.getElementById('mv-obs').value,
+  });
+  save(); closeModal('modal-monta-verraco');
+  verVerraco(_verracoActualId);
+  renderVerraco();
+  toast('✓ Monta registrada');
+}
+
+function abrirModalTratamientoV() {
+  if (!_verracoActualId) return;
+  document.getElementById('tv-verraco-id').value = _verracoActualId;
+  ['tv-producto','tv-dosis','tv-aplicado','tv-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('tv-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('tv-proxima').value = '';
+  document.getElementById('tv-tipo').value = 'vitamina';
+  document.getElementById('modal-trat-verraco').classList.add('open');
+}
+
+function saveTratamientoV() {
+  const verracoId = document.getElementById('tv-verraco-id').value;
+  const producto = document.getElementById('tv-producto').value.trim();
+  if (!producto) { toast('⚠ Ingresa el producto','error'); return; }
+  if (!DB.tratamientosV) DB.tratamientosV = [];
+  DB.tratamientosV.push({
+    id:uid(), verracoId,
+    tipo:     document.getElementById('tv-tipo').value,
+    producto,
+    dosis:    document.getElementById('tv-dosis').value,
+    fecha:    document.getElementById('tv-fecha').value,
+    proxima:  document.getElementById('tv-proxima').value,
+    aplicado: document.getElementById('tv-aplicado').value,
+    obs:      document.getElementById('tv-obs').value,
+  });
+  save(); closeModal('modal-trat-verraco');
+  verVerraco(_verracoActualId);
+  renderVerraco();
+  toast('✓ Tratamiento registrado');
+}
+
+function deleteMontaV(id) {
+  if (!confirm('¿Eliminar esta monta?')) return;
+  DB.montasV.splice(DB.montasV.findIndex(m=>m.id===id),1);
+  save(); verVerraco(_verracoActualId); renderVerraco();
+}
+
+function deleteTratV(id) {
+  if (!confirm('¿Eliminar este tratamiento?')) return;
+  DB.tratamientosV.splice(DB.tratamientosV.findIndex(t=>t.id===id),1);
+  save(); verVerraco(_verracoActualId); renderVerraco();
+}
+
+function deleteVerraco(id) {
+  if (!confirm('¿Eliminar este verraco y todos sus registros?')) return;
+  DB.verracos.splice(DB.verracos.findIndex(v=>v.id===id),1);
+  DB.montasV = (DB.montasV||[]).filter(m=>m.verracoId!==id);
+  DB.tratamientosV = (DB.tratamientosV||[]).filter(t=>t.verracoId!==id);
+  save(); renderVerraco();
 }
 
 // ══════════════════════════════════════════
