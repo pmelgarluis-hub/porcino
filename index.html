@@ -416,6 +416,35 @@ tr.row-pronto td:first-child{border-left:3px solid var(--accent);}
 .nav-item,.btn,.btn-sm,.modal-close,.logout-btn{touch-action:manipulation;}
 select,input,textarea{-webkit-appearance:none;appearance:none;}
 </style>
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyAyDpEagRPY_26uLaWrGi5HJbMrf8w_uhk",
+      authDomain: "granja-las-olas.firebaseapp.com",
+      projectId: "granja-las-olas",
+      storageBucket: "granja-las-olas.firebasestorage.app",
+      messagingSenderId: "622549806983",
+      appId: "1:622549806983:web:3020348a63816f87e16d22"
+    };
+    const fbApp = initializeApp(firebaseConfig);
+    const fbDb  = getFirestore(fbApp);
+    const fbDoc = doc(fbDb, 'porcapp', 'datos');
+    window._fbSave = async (data) => {
+      try { await setDoc(fbDoc, { payload: JSON.stringify(data) }); }
+      catch(e) { console.error('Firebase save error:', e); }
+    };
+    window._fbLoad = async () => {
+      try {
+        const snap = await getDoc(fbDoc);
+        if (snap.exists()) return JSON.parse(snap.data().payload);
+      } catch(e) { console.error('Firebase load error:', e); }
+      return null;
+    };
+    window._fbReady = true;
+    window.dispatchEvent(new Event('fbReady'));
+  </script>
 </head>
 <body>
 
@@ -1870,68 +1899,51 @@ function toast(msg, tipo) {
 }
 
 function save() {
-  try { localStorage.setItem('porcapp2', JSON.stringify(DB)); toast(); }
-  catch(e) { toast('⚠ Error al guardar', 'error'); }
-}
-function load() {
   try {
+    // Guardar siempre en localStorage como respaldo
+    localStorage.setItem('porcapp2', JSON.stringify(DB));
+    // Guardar en Firebase si está disponible
+    if (window._fbSave) window._fbSave(DB);
+    toast();
+  } catch(e) { toast('⚠ Error al guardar', 'error'); }
+}
+
+async function load() {
+  try {
+    // Intentar cargar desde Firebase primero
+    if (window._fbLoad) {
+      const fbData = await window._fbLoad();
+      if (fbData) {
+        Object.keys(fbData).forEach(k => { DB[k] = fbData[k]; });
+        ['lotes','pesos','alimentos','bajas','gastos','ventas','gestantes','insumos','kardex','corrales','fichas','partos','lechones','abonos','verracos','montasV','tratamientosV']
+          .forEach(k => { if (!Array.isArray(DB[k])) DB[k] = []; });
+        console.log('✅ Datos cargados desde Firebase');
+        return;
+      }
+    }
+    // Fallback: cargar desde localStorage
     const d = localStorage.getItem('porcapp2');
     if (d) {
       const parsed = JSON.parse(d);
       Object.keys(parsed).forEach(k => { DB[k] = parsed[k]; });
       ['lotes','pesos','alimentos','bajas','gastos','ventas','gestantes','insumos','kardex','corrales','fichas','partos','lechones','abonos','verracos','montasV','tratamientosV']
         .forEach(k => { if (!Array.isArray(DB[k])) DB[k] = []; });
+      // Si hay datos locales, subirlos a Firebase
+      if (window._fbSave) window._fbSave(DB);
+      console.log('✅ Datos cargados desde localStorage y subidos a Firebase');
     }
-  } catch(e) {}
+  } catch(e) { console.error('Error al cargar:', e); }
 }
 
 // ══════════════════════════════════════════
 //  SEED DATA
 // ══════════════════════════════════════════
-function seedData() {
-  if (DB.lotes.length > 0) return;
-  const fases = ['Lechón','Destete','Engorde','Finalización'];
-  const razas = ['Landrace','Duroc','Yorkshire','Pietrain'];
-  for (let i = 1; i <= 8; i++) {
-    DB.lotes.push({ id:'lot'+i, numero:`L-2025-${String(i).padStart(3,'0')}`, fecha:`2025-0${Math.min(i,5)}-${String(i*3).padStart(2,'0')}`,
-      cantidad:20+i*3, bajas:Math.floor(i*0.8), fase:fases[i%4], raza:razas[i%4], proveedor:'Granja Norte',
-      pesoInicial:15+i*2, costo:8000+i*1500, notas:'', activo:i<7 });
-  }
-  DB.pesos.push(
-    {id:'p1',lote:'lot1',fecha:'2025-03-10',cantidad:23,total:2530,notas:''},
-    {id:'p2',lote:'lot1',fecha:'2025-04-10',cantidad:23,total:3680,notas:''},
-    {id:'p3',lote:'lot2',fecha:'2025-04-05',cantidad:26,total:2080,notas:''}
-  );
-  DB.alimentos.push(
-    {id:'a1',lote:'lot1',fecha:'2025-03-05',tipo:'Engorde',cantidad:5,costo:280,proveedor:'AgroGuat',notas:''},
-    {id:'a2',lote:'lot2',fecha:'2025-03-10',tipo:'Crecimiento',cantidad:4,costo:260,proveedor:'AgroGuat',notas:''},
-    {id:'a3',lote:'lot1',fecha:'2025-04-05',tipo:'Finalizador',cantidad:6,costo:300,proveedor:'Purina',notas:''}
-  );
-  DB.bajas.push(
-    {id:'b1',lote:'lot1',fecha:'2025-03-15',cantidad:2,causa:'Diarrea',peso:45,precio:7.5,notas:''},
-    {id:'b2',lote:'lot3',fecha:'2025-04-02',cantidad:1,causa:'Aplastamiento',peso:22,precio:7.5,notas:''}
-  );
-  DB.gastos.push(
-    {id:'g1',fecha:'2025-03-01',lote:'lot1',categoria:'Veterinario / Medicamento',descripcion:'Vacuna Parvo',monto:450,proveedor:'VetGuat',doc:'F-001'},
-    {id:'g2',fecha:'2025-03-15',lote:'lot2',categoria:'Mano de Obra',descripcion:'Jornales marzo',monto:2800,proveedor:'Empleados',doc:''},
-    {id:'g3',fecha:'2025-04-01',lote:'lot1',categoria:'Alimento',descripcion:'Concentrado engorde',monto:1680,proveedor:'AgroGuat',doc:'F-055'}
-  );
-  DB.ventas.push(
-    {id:'v1',fecha:'2025-04-20',lote:'lot1',cantidad:10,peso:2100,precio:8.5,comprador:'Carnicería Central',notas:''},
-    {id:'v2',fecha:'2025-05-10',lote:'lot2',cantidad:8,peso:1680,precio:9.0,comprador:'Matan Guate',notas:''}
-  );
-  // Seed gestantes — algunas próximas a parir
-  const hoy = new Date();
-  function montaHaceDias(d) {
-    const f = new Date(hoy); f.setDate(f.getDate()-d); return f.toISOString().slice(0,10);
-  }
-  DB.gestantes.push(
-    {id:'gest1',nombre:'C-001',tipo:'Monta natural',monta:montaHaceDias(108),dias:114,verraco:'V-Rex',partoNum:3,lote:'lot1',peso:280,notas:'Buena condición',estado:'gestante'},
-    {id:'gest2',nombre:'C-002',tipo:'Inseminación artificial',monta:montaHaceDias(100),dias:114,verraco:'Semen Duroc',partoNum:2,lote:'',peso:260,notas:'',estado:'gestante'},
-    {id:'gest3',nombre:'C-005',tipo:'Monta natural',monta:montaHaceDias(45),dias:114,verraco:'V-Rex',partoNum:1,lote:'',peso:240,notas:'Primera gestación',estado:'gestante'},
-    {id:'gest4',nombre:'C-008',tipo:'Inseminación artificial',monta:montaHaceDias(114),dias:114,verraco:'Semen Yorkshire',partoNum:4,lote:'lot2',peso:295,notas:'',estado:'parida'},
-    {id:'gest5',nombre:'C-011',tipo:'Monta natural',monta:montaHaceDias(80),dias:114,verraco:'V-Max',partoNum:2,lote:'',peso:270,notas:'',estado:'gestante'}
-  );
+function seedData() { }
+function seedInsumos() { }
+function seedCorrales() { }
+function seedCatalogos() {
+  if (DB.catalogos) return;
+  DB.catalogos = { proveedores:[], clientes:[], razas:[], fases:[], correlativo:1 };
   save();
 }
 
@@ -2482,20 +2494,7 @@ function renderCal(year, month) {
 // ══════════════════════════════════════════
 //  CORRALES
 // ══════════════════════════════════════════
-function seedCorrales() {
-  if (!DB.corrales) DB.corrales = [];
-  if (DB.corrales.length > 0) return;
-  DB.corrales.push(
-    { id:'cor1', numero:1, descripcion:'Corral lechones norte', capacidad:30, notas:'' },
-    { id:'cor2', numero:2, descripcion:'Corral engorde sur',    capacidad:40, notas:'' },
-    { id:'cor3', numero:3, descripcion:'Corral finalización',   capacidad:35, notas:'' }
-  );
-  if (DB.lotes[0]) { DB.lotes[0].corraleId='cor1'; DB.lotes[0].correlativo=25; DB.lotes[0].numero='Corral 1 - Lote 25'; }
-  if (DB.lotes[1]) { DB.lotes[1].corraleId='cor1'; DB.lotes[1].correlativo=26; DB.lotes[1].numero='Corral 1 - Lote 26'; }
-  if (DB.lotes[2]) { DB.lotes[2].corraleId='cor2'; DB.lotes[2].correlativo=10; DB.lotes[2].numero='Corral 2 - Lote 10'; }
-  if (DB.lotes[3]) { DB.lotes[3].corraleId='cor2'; DB.lotes[3].correlativo=11; DB.lotes[3].numero='Corral 2 - Lote 11'; }
-  save();
-}
+function seedCorrales() { }
 
 function getCorral(id) { return (DB.corrales||[]).find(c=>c.id===id); }
 function getCorralNum(id) { const c=getCorral(id); return c?`Corral ${c.numero}`:'Sin corral'; }
@@ -3584,61 +3583,7 @@ _Granja Porcina Las Olas_`;
 // Estructura DB.kardex:  movimientos (entradas/salidas) por producto
 // El stock y costo promedio se calculan desde los movimientos
 
-function seedInsumos() {
-  if (DB.insumos && DB.insumos.length > 0) return;
-  if (!DB.insumos) DB.insumos = [];
-  if (!DB.kardex)  DB.kardex  = [];
-
-  // Productos catálogo
-  DB.insumos.push(
-    { id:'ins1', nombre:'Vitamina ADE Complex', categoria:'Vitaminas / Suplementos',
-      unidadDosis:'Inyección', stockMin:3, proveedor:'VetGuat',
-      vencimiento:'2026-05-01', usaKardex:true, notas:'1 ml por cerdo, vía IM' },
-    { id:'ins2', nombre:'Oxitetraciclina 20%', categoria:'Medicamentos / Antibióticos',
-      unidadDosis:'Dosis', stockMin:5, proveedor:'AgroGuat',
-      vencimiento:'2026-04-15', usaKardex:true, notas:'Antibiótico amplio espectro' },
-    { id:'ins3', nombre:'Vacuna Circovirus PCV2', categoria:'Vacunas',
-      unidadDosis:'Dosis', stockMin:10, proveedor:'Zoetis',
-      vencimiento:'2025-12-10', usaKardex:true, notas:'Lechones 3 semanas' },
-    { id:'ins4', nombre:'Ivermectina 1%', categoria:'Desparasitantes',
-      unidadDosis:'ml', stockMin:20, proveedor:'VetGuat',
-      vencimiento:'2026-03-20', usaKardex:true, notas:'1 ml por 33 kg PV' }
-  );
-
-  // Movimientos kardex: tipo 'entrada' o 'salida'
-  // Entrada: cantidadCompra (unidades compradas), dosisPorUnidad, costoTotal → genera dosis
-  // Salida:  dosis usadas
-  DB.kardex.push(
-    // Vitamina ADE: compra 1 frasco Q1000 → 10 inyecciones
-    { id:'k1', insumoId:'ins1', tipo:'entrada', fecha:'2025-05-01',
-      cantCompra:1, unidadCompra:'Frasco', dosisPorUnidad:10, costoTotal:1000,
-      dosisMovidas:10, lote:'', proveedor:'VetGuat', doc:'F-001', notas:'' },
-    // Vitamina ADE: uso 2 inyecciones
-    { id:'k2', insumoId:'ins1', tipo:'salida', fecha:'2025-05-15',
-      dosisMovidas:2, lote:'lot1', notas:'Tratamiento general' },
-    // Oxitetraciclina: compra 1 frasco Q350 → 20 dosis
-    { id:'k3', insumoId:'ins2', tipo:'entrada', fecha:'2025-04-15',
-      cantCompra:1, unidadCompra:'Frasco', dosisPorUnidad:20, costoTotal:350,
-      dosisMovidas:20, lote:'', proveedor:'AgroGuat', doc:'F-022', notas:'' },
-    // Oxitetraciclina: uso 16 dosis
-    { id:'k4', insumoId:'ins2', tipo:'salida', fecha:'2025-05-20',
-      dosisMovidas:16, lote:'lot2', notas:'Tratamiento respiratorio' },
-    // Vacuna Circovirus: compra 1 caja Q2400 → 50 dosis
-    { id:'k5', insumoId:'ins3', tipo:'entrada', fecha:'2025-05-10',
-      cantCompra:1, unidadCompra:'Caja', dosisPorUnidad:50, costoTotal:2400,
-      dosisMovidas:50, lote:'', proveedor:'Zoetis', doc:'F-088', notas:'' },
-    // Vacuna: uso 18 dosis
-    { id:'k6', insumoId:'ins3', tipo:'salida', fecha:'2025-05-18',
-      dosisMovidas:18, lote:'lot3', notas:'Lote L-2025-003' },
-    // Ivermectina: compra 1 litro Q280 → 100 ml
-    { id:'k7', insumoId:'ins4', tipo:'entrada', fecha:'2025-03-20',
-      cantCompra:1, unidadCompra:'Litro', dosisPorUnidad:100, costoTotal:280,
-      dosisMovidas:100, lote:'', proveedor:'VetGuat', doc:'F-010', notas:'' },
-    // Ivermectina: uso 40 ml
-    { id:'k8', insumoId:'ins4', tipo:'salida', fecha:'2025-04-05',
-      dosisMovidas:40, lote:'lot1', notas:'Desparasitación lote 1' }
-  );
-}
+function seedInsumos() { }
 
 // ── Calcular stock y costo promedio ponderado desde kardex ──
 function calcKardex(insumoId) {
@@ -4534,36 +4479,6 @@ function deleteVerraco(id) {
 //  CONFIGURACIÓN — CATÁLOGOS MAESTROS
 // ══════════════════════════════════════════
 
-function seedCatalogos() {
-  if (!DB.catalogos) DB.catalogos = {
-    proveedores: [
-      { id:'pv1', nombre:'AgroGuat',    tel:'2345-6789', tipo:'Alimento'    },
-      { id:'pv2', nombre:'VetGuat',     tel:'5555-1234', tipo:'Veterinario' },
-      { id:'pv3', nombre:'Zoetis GT',   tel:'2222-3333', tipo:'Veterinario' },
-      { id:'pv4', nombre:'Purina GT',   tel:'4444-5555', tipo:'Alimento'    },
-    ],
-    clientes: [
-      { id:'cl1', nombre:'Carnicería Central', tel:'3333-4444', tipo:'Carnicería' },
-      { id:'cl2', nombre:'Matan Guate',        tel:'6666-7777', tipo:'Mayorista'  },
-    ],
-    razas: [
-      { id:'rz1', nombre:'Landrace',  origen:'Dinamarca',      notas:'Alta prolificidad' },
-      { id:'rz2', nombre:'Duroc',     origen:'Estados Unidos', notas:'Buena calidad de carne' },
-      { id:'rz3', nombre:'Yorkshire', origen:'Inglaterra',     notas:'Maternidad excelente' },
-      { id:'rz4', nombre:'Pietrain',  origen:'Bélgica',        notas:'Alto porcentaje magro' },
-    ],
-    fases: [
-      { id:'fs1', nombre:'Lechón',        dias:21  },
-      { id:'fs2', nombre:'Destete',       dias:42  },
-      { id:'fs3', nombre:'Engorde',       dias:60  },
-      { id:'fs4', nombre:'Finalización',  dias:30  },
-      { id:'fs5', nombre:'Reproductor',   dias:null },
-    ],
-    correlativoInicio: 1,
-  };
-  save();
-}
-
 // ── Acordeón ──
 function toggleAcc(id) {
   const body  = document.getElementById(id);
@@ -4747,13 +4662,23 @@ function filterTable(tableId, query) {
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
-load();
-seedData();
-seedInsumos();
-seedCorrales();
-seedCatalogos();
-checkSession();
-renderDashboard();
+async function init() {
+  await load();
+  seedData();
+  seedInsumos();
+  seedCorrales();
+  seedCatalogos();
+  checkSession();
+  renderDashboard();
+}
+
+// Esperar a Firebase o arrancar después de 3 segundos
+if (window._fbReady) {
+  init();
+} else {
+  window.addEventListener('fbReady', init, { once: true });
+  setTimeout(() => { if (!window._fbReady) init(); }, 3000);
+}
 </script>
 </body>
 </html>
